@@ -1,129 +1,183 @@
 <h1 align = "center">
-Week 8 Lab Report: Code Review
+Week 10 Lab Report: Different Bugs
 </h1>
 
-The repository that [repository](https://github.com/henryzhang03/markdown-parse)
+The group's [repository](https://github.com/henryzhang03/my-markdown-parse)
 
-The other group's [repository](https://github.com/nakulnandhakumar/markdown-parse)
+The main [repository](https://github.com/ucsd-cse15l-w22/markdown-parse)
 
-## *Part 1: Snippet 1*
+## *Part 1: Finding Tests with Different Results*
+With the sheer number of files, searching through them one by one would not be feasible, or at the very least very time-consuming. So, we therefore use a bash script that has the following contents:
 
-Using VSCode preview, I saw that for snippet 1, there should be these 3 links: `` `google.com``, `google.com`, `ucsd.edu`. Below is the code snippet for the test that I ran for `snippet1.md`.
+```sh
+for file in test-files/*.md;
+do
+    echo $file
+    java MarkdownParse $file
+done
+```
+
+This bash script will not only return the outputs of running each `.md` file with the given implementation, it will also indicate which file the results map to, with the line `echo $file`. Additionally, we use the command
+
+```
+bash scirpt.sh > results.txt
+```
+
+We do this for both my group's implementation and also the main implementation, storing them into their respective `results.txt` files. Next, we use the command `diff`, or more specifically:
+
+ ```
+diff my-markdown-parse/results.txt markdown-parse/results.txt
+ ```
+
+The output of the command is the following:
+
+```
+47a48
+> []
+90a92
+> [/foo]
+209a212
+> [url]
+226a230
+> [baz]
+266c270
+< [/bar\* "ti\*tle"]
+---
+> []
+488c492
+< [/f&ouml;&ouml; "f&ouml;&ouml;"]
+---
+> []
+688c692
+< [url &quot;tit&quot;]
+---
+> []
+846c850
+< [/uri "title"]
+---
+> []
+851a856
+> []
+854a860
+> []
+856c862
+< [/my uri]
+---
+> []
+858c864
+< [</my uri>]
+---
+> []
+860,861c866
+< [foo
+< bar]
+---
+> []
+865,866c870
+< [<foo
+< bar>]
+---
+> []
+874c878
+< [\(foo\]
+---
+> [\(foo\)]
+876c880
+< [foo(and(bar]
+---
+> [foo(and(bar))]
+878c882
+< [foo(and(bar]
+---
+> []
+880c884
+< [foo\(and\(bar\]
+---
+> []
+882c886
+< [<foo(and(bar]
+---
+> []
+898c902
+< [/url "title", /url 'title', /url (title]
+---
+> []
+900c904
+< [/url "title \"&quot;"]
+---
+> []
+904c908
+< [/url "title "and" title"]
+---
+> []
+906c910
+< [/url 'title "and" title']
+---
+> []
+908,909c912
+< [   /uri
+<   "title"  ]
+---
+> []
+913c916
+< []
+---
+> [/uri]
+915c918
+< []
+---
+> [/uri]
+917c920
+< []
+---
+> [/uri]
+931c934
+< []
+---
+> [uri1]
+956a960
+> [moon.jpg]
+957a962
+> [/uri]
+1032a1038
+> []
+1033a1040
+> []
+1047c1054
+< []
+---
+> [/url]
+1049c1056
+< []
+---
+> [/url]
+1055c1062
+< []
+---
+> [train.jpg]
+1059c1066
+< []
+---
+> [<url>]
+1063c1070
+< []
+---
+> [/url]
+```
+I ran into some problems here, as some tests for my group's implementation caused an infinite loop, so I had to find specific lines that would actually match up. However, doing so was not that hard, as you just find the corresponding `.md` file.
+
+## *Part 2: Bug 1*
+
+One test file that produced different results for my group's implementation versus the main implementation is `577.md`. Our implementation produced `[]` as the ouput, but the main implementation produced `[train.jpg]`. Using VSCode preview, we can see that there should not be a link in test file `577.md`, so the main implementation is wrong. The expected output is `[]`. One fix that is possible for the main implementation is to add the code
 
 ```java
-@Test
-public void testSnippet1() throws IOException {
-    Path fileName = Path.of("snippet1.md");
-    String contents = Files.readString(fileName);
-    assertEquals(List.of("`google.com", "google.com", "ucsd.edu"), MarkdownParse.getLinks(contents));
+if(nextOpenBracket > 0 && markdown.charAt(nextOpenBracket - 1) == '!') {
+    flag = true;
 }
 ```
-Using this test for my group's repo, I get the following error:
 
-```java
-java.lang.AssertionError: expected:<[`google.com, google.com, ucsd.edu]> but was:<[url.com, `google.com, google.com]>
-        at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.failNotEquals(Assert.java:835)
-        at org.junit.Assert.assertEquals(Assert.java:120)
-        at org.junit.Assert.assertEquals(Assert.java:146)
-        at MarkdownParseTest.testSnippet1(MarkdownParseTest.java:54)
-```
-Using the same test for the other group's repo, I get this: 
-```java
-java.lang.AssertionError: expected:<[`google.com, google.com, ucsd.edu]> but was:<[url.com, `google.com, google.com]>
-        at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.failNotEquals(Assert.java:835)
-        at org.junit.Assert.assertEquals(Assert.java:120)
-        at org.junit.Assert.assertEquals(Assert.java:146)
-        at MarkdownParseTest.testSnippet1(MarkdownParseTest.java:50)
-```
+The above code snippet checks for the exclamation mark which denotes an image.
 
-I do not think there is a small(<10 lines code) code change that will make my program work for snippet 1 and all related cases that use inline code with backticks. This would require a more involved change, as my program does not deal with backticks at all, so checking for them, I might encounter other rules about backticks in VSCode that I did not know about.
+## *Part 3: Bug 2*
 
-## *Part 2: Snippet 2*
-
-For snippet 2, the expected output based on VSCode preview should be these 3 links: `a.com`, `a.com(())`, `example.com`.
-
-For snippet 3, the test that I wrote is the following:
-
-```java
-@Test
-public void testSnippet2() throws IOException {
-        Path fileName = Path.of("snippet2.md");
-        String contents = Files.readString(fileName);
-        assertEquals(List.of("a.com", "a.com(())", "example.com"), MarkdownParse.getLinks(contents));
-}
-```
-Using this test for my group's repo, I get the following error:
-
-```java
-java.lang.AssertionError: expected:<[a.com, a.com(()), example.com]> but was:<[a.com, a.com(()]>
-        at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.failNotEquals(Assert.java:835)
-        at org.junit.Assert.assertEquals(Assert.java:120)
-        at org.junit.Assert.assertEquals(Assert.java:146)
-        at MarkdownParseTest.testSnippet2(MarkdownParseTest.java:61)
-```
-Using the same test for the other group's repo, I get this: 
-```java
-java.lang.StringIndexOutOfBoundsException: String index out of range: -1
-        at java.base/java.lang.StringLatin1.charAt(StringLatin1.java:48)
-        at java.base/java.lang.String.charAt(String.java:1512)
-        at MarkdownParse.getLinks(MarkdownParse.java:25)
-        at MarkdownParseTest.testSnippet2(MarkdownParseTest.java:57)
-```
-
-I do not think there is a small(<10 lines) code change that will make my
-program work for snippet 2 and all related cases that nest parentheses,
-brackets, and escaped brackets. This is because I need to modify my code to check for 
-nested parentheses and brackets first, which I think will cause errors with other break files I created.
-Then I would have to check for escaped brackets, which I think might again cause errors with fixes to my 
-program that target other break files. This has made me realize that working on a project requires many fixes to
-take into account different issues that rise up, and that your solution should try to be general, instead of only trying to fix one specific case.
-
-## *Part 3: Snippet 3*
-
-For snippet 3, the expected output based on VSCode preview should be these 3 links: `https://www.twitter.com`, `https://ucsd-cse15l-w22.github.io/`, `https://cse.ucsd.edu/`.
-
-For snippet 2, the test that I wrote is the following:
-
-```java
-@Test
-public void testSnippet3() throws IOException {
-    Path fileName = Path.of("snippet3.md");
-    String contents = Files.readString(fileName);
-    assertEquals(List.of("https://www.twitter.com", "https://ucsd-cse15l-w22.github.io/", "https://cse.ucsd.edu/"), MarkdownParse.getLinks(contents));
-}
-```
-Using this test for my group's repo, I get the following error:
-
-```java
-java.lang.AssertionError: expected:<[https://www.twitter.com, https://ucsd-cse15l-w22.github.io/, https://cse.ucsd.edu/]> but was:<[
-    https://www.twitter.com
-, 
-    https://ucsd-cse15l-w22.github.io/
-, github.com
-
-And there's still some more text after that.
-
-[this link doesn't have a closing parenthesis for a while](https://cse.ucsd.edu/
-
-
-
-]>
-        at org.junit.Assert.fail(Assert.java:89)
-        at org.junit.Assert.failNotEquals(Assert.java:835)
-        at org.junit.Assert.assertEquals(Assert.java:120)
-        at org.junit.Assert.assertEquals(Assert.java:146)
-        at MarkdownParseTest.testSnippet3(MarkdownParseTest.java:68)
-```
-Using the same test for the other group's repo, I get this: 
-```java
-java.lang.StringIndexOutOfBoundsException: String index out of range: -1
-        at java.base/java.lang.StringLatin1.charAt(StringLatin1.java:48)
-        at java.base/java.lang.String.charAt(String.java:1512)
-        at MarkdownParse.getLinks(MarkdownParse.java:25)
-        at MarkdownParseTest.testSnippet3(MarkdownParseTest.java:64)
-```
-
-I do not think there is a small(<10 lines) code change that will make my program work for snippet 3 and all related cases that have newlines in brackets and parentheses. This is because I believe that checking for newlines and the rules for newlines are even more complicated than a regular error, as then you have to start parsing lines. I feel that on a priority list of fixes, fixes for newlines in brackets and parentheses should be near the bottom of the list.
+One test file that produced different results for my group's implementation versus the main implementation is `32.md`. Our implementation produced `[]` as the ouput, but the main implementation produced `[/f&ouml;&ouml; "f&ouml;&ouml;"]`. Using VSCode preview, we can see that there is indeed a link in test file `32.md`, and our implementation is wrong and did not catch it. The expected output is a weird combination of `[föö]` and the reference to `/f%C3%B6%C3%B6`. Both our implementation and the main implementation are wrong because we have no way of being able to interpret weird characters. However, our group's implementation was "more" wrong, in the fact that it also broke at the space and didn't include anything at all. There is no code that should be "fixed", just code that should be added to handle those 2 cases. The code to fix the space will probably require an if-statement catching spaces, and checking the conditions of the stuff around the space. The code to fix the weird characters is a bit of range, but it could be a parser that checks for combinations of characters that should produce certain other characters using some sort of library or predefined rule for each combination.
